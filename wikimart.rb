@@ -222,8 +222,4 @@ class Wikimart
     end
   end
 
-  def self.products
-    Product.where('is_active = true AND quantity > 0 AND market_yandex = true AND (brand_id IN (5,3,40,47) OR supplier_id IN (17))')
-  end
-
 end
