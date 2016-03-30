@@ -281,6 +281,41 @@ class Wikimart
     response Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}"
   end
 
+  # Создание бандла с идентификатором ID
+  def new_bundles id = nil, name = '', description = '', start_time = DateTime.now, end_time = (DateTime.now + 1.days),
+                  is_available = 1, slots = [], bonus = []
+    params = {
+        :name => name,
+        :description => description,
+        :startTime => start_time,
+        :endTime  => end_time,
+        :isAvailable => is_available,
+        :slots  => slots,
+        :bonus  => bonus
+    }
+    request Wikimart::API_PATH + "bundles/#{id.to_s}", params, Wikimart::METHOD_POST
+  end
+
+  # Изменение бандла с идентификатором ID
+  def set_bundles id = nil, name = '', description = '', start_time = DateTime.now, end_time = (DateTime.now + 1.days),
+                  is_available = 1, slots = [], bonus = []
+    params = {
+        :name => name,
+        :description => description,
+        :startTime => start_time,
+        :endTime  => end_time,
+        :isAvailable => is_available,
+        :slots  => slots,
+        :bonus  => bonus
+    }
+    request Wikimart::API_PATH + "bundles/#{id.to_s}", params
+  end
+
+  # Удаление бандла
+  def del_bundles id = nil
+    params = {}
+    request Wikimart::API_PATH + "bundles/#{id.to_s}", params, Wikimart::METHOD_DELETE
+  end
 
   private
 
