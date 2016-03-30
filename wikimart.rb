@@ -1,4 +1,13 @@
 require 'open-uri'
+require 'json'
+require 'open-uri'
+require 'rubygems'
+require 'bundler'
+require 'active_support/core_ext'
+require 'pp'
+require 'net/http'
+require 'digest/hmac'
+require 'openssl'
 
 class Wikimart
 
