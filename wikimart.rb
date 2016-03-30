@@ -1,13 +1,4 @@
 require 'open-uri'
-require 'json'
-require 'open-uri'
-require 'rubygems'
-require 'bundler'
-require 'active_support/core_ext'
-require 'pp'
-require 'net/http'
-require 'digest/hmac'
-require 'openssl'
 
 class Wikimart
 
@@ -45,6 +36,15 @@ class Wikimart
   STATUS_PAYMENT_REFUSED    = 'refused'
   STATUS_PAYMENT_REFUND     = 'refund'
 
+  STATUS_PACK_ACCEPTED           = 'accepted'
+  STATUS_PACK_LEFT_TERMINAL      = 'left_terminal'
+  STATUS_PACK_DISPATCHING        = 'dispatching'
+  STATUS_PACK_ARRIVED_TO_CITY    = 'arrived_to_city'
+  STATUS_PACK_ARRIVED_TO_OFFICE  = 'arrived_to_office'
+  STATUS_PACK_DELIVERED          = 'delivered'
+  STATUS_PACK_UNDELIVERED        = 'undelivered'
+  STATUS_PACK_REFUND             = 'refund'
+
   @@host = 'http://merchant.wikimart.ru'
   @@app_id = ''
   @@app_secret = ''
@@ -69,30 +69,42 @@ class Wikimart
     @@instance
   end
 
+  # Получение статусов заказа
   def directory_order_statuses
     response Wikimart::API_PATH + 'directory/order/statuses'
   end
 
+  # Получение списка вариантов доставки магазина
   def directory_delivery_variants
     response Wikimart::API_PATH + 'directory/delivery/variants/'
   end
 
+  # Получение списка регионов/городов доставки
   def directory_delivery_location delivery_id = nil
     response Wikimart::API_PATH + "directory/delivery/#{delivery_id}/location"
   end
 
+  # Получение списка статусов доставки
   def directory_delivery_statuses
     response Wikimart::API_PATH + 'directory/delivery/statuses'
   end
 
+  # Получение списка способов оплат
   def directory_payment_types
     response Wikimart::API_PATH + 'directory/payment/types'
   end
 
+  # Получение списка причин апелляций
   def directory_appeal_subject
     response Wikimart::API_PATH + 'directory/appeal/subject'
   end
 
+  # Получение списка статусов апелляций
+  def directory_status
+    response Wikimart::API_PATH + 'directory/appeal/status'
+  end
+
+  # Получение статусов заказа
   def order_list status = Wikimart::STATUS_OPENED, date_from = DateTime.now - 1.week, date_to = DateTime.now,
                  transition_status =  Wikimart::STATUS_OPENED, page = 1, page_size = 100, appeal_status = ''
 
@@ -109,14 +121,18 @@ class Wikimart
     response Wikimart::API_PATH + 'orders?' + Rack::Utils.escape( params.map{|k,v| "#{k}=#{v}"}.join("&") )
   end
 
+  # Получение информации о заказе
   def orders order_id = nil
     response Wikimart::API_PATH + "orders/#{order_id.to_s}"
   end
 
+  ## Смена статуса заказа
+  # Получение списка причин для смены статуса
   def orders_transitions order_id = nil
     response Wikimart::API_PATH + "orders/#{order_id.to_s}/transitions"
   end
 
+  # Запрос на смену статуса заказа
   def orders_status order_id = nil, status = Wikimart::STATUS_CONFIRMED, reason_id = 'null', comment = ''
 
     params = {
@@ -128,10 +144,13 @@ class Wikimart
     request Wikimart::API_PATH + "orders/#{order_id.to_s}/status", params
   end
 
+  # Получение истории смены статусов заказа
   def orders_statuses order_id = nil
     response Wikimart::API_PATH + "orders/#{order_id.to_s}/status"
   end
 
+  ## Добавление комментария к заказу
+  # Запрос на добавление комментария
   def orders_comments order_id = nil, text = ''
     params = {
         :text => text
@@ -140,6 +159,7 @@ class Wikimart
     request Wikimart::API_PATH + "orders/#{order_id.to_s}/comments", params, Wikimart::METHOD_POST
   end
 
+  # Получение комментариев заказа
   def orders_payments_payments order_id = nil, payment_id = nil, status = Wikimart::STATUS_PAYMENT_PENDING
 
     params = {
@@ -149,6 +169,7 @@ class Wikimart
     request Wikimart::API_PATH + "orders/#{order_id.to_s}/payments/#{payment_id.to_s}/status", params
   end
 
+  # Изменение статуса доставки
   def orders_deliverystatus order_id = nil, state = Wikimart::STATE_CREATED, update_time = DateTime.now
     params = {
         :state => state,
@@ -158,6 +179,51 @@ class Wikimart
     request Wikimart::API_PATH + "orders/#{order_id.to_s}/deliverystatus", params
   end
 
+  # Получение списка возможных причин претензий
+  def orders_appealsubjects order_id = nil
+    response Wikimart::API_PATH + "orders/#{order_id.to_s}/appealsubjects/"
+  end
+
+  # Создание претензии по заказу
+  def orders_appeals order_id = nil, subject_id = nil, comment = ''
+    params = {
+        :subjectID => subject_id,
+        :comment   => comment
+    }
+
+    request Wikimart::API_PATH + "orders/#{order_id.to_s}/appeals", params, Wikimart::METHOD_POST
+  end
+
+  # Регистрация нового отправления
+  def new_orders_packages order_id = nil, service = '', package_id = nil, items = []
+    params = {
+        :service => service,
+        :packageId   => package_id,
+        :items => items
+    }
+
+    request Wikimart::API_PATH + "orders/#{order_id.to_s}/packages", params, Wikimart::METHOD_POST
+  end
+
+  # Получение списка отправлений по заказу
+  def get_orders_packages order_id = nil
+    response Wikimart::API_PATH + "orders/#{order_id.to_s}/packages/"
+  end
+
+  # Обновить статус посылки
+  def set_orders_packages_states order_id = nil, package_id = nil, state = Wikimart::STATUS_PACK_ACCEPTED,
+                                 update_time = DateTime.now
+    params = {
+        :state => state,
+        :updateTime => update_time.strftime("%Y-%m-%dT%H:%M:%S%:z")
+    }
+
+    request Wikimart::API_PATH + "orders/#{order_id.to_s}/packages/#{package_id.to_s}/states", params
+  end
+
+  private
+
+  # Аутентификация
   def authentication method = 'GET', content_hash = '', date = DateTime.now.rfc2822, resource = 'api/1.0/orders/'
     signature = method + "\n" + Digest::MD5.hexdigest(content_hash) + "\n"  + date.to_s + "\n" + resource
     key = @@app_secret
@@ -166,6 +232,7 @@ class Wikimart
     OpenSSL::HMAC.hexdigest(digest, key, signature)
   end
 
+  # Ответ на GET
   def response params
     d = DateTime.now.rfc2822.to_s
 
@@ -173,7 +240,7 @@ class Wikimart
       r = open(@@host + params,
                "Accept" => "application/" + @@data_type,
                "X-WM-Date" => d,
-               "X-WM-Authentication" => @@app_id + ':' + @@instance.authentication('GET', '', d, params)).read
+               "X-WM-Authentication" => @@app_id + ':' + authentication('GET', '', d, params)).read
 
     rescue OpenURI::HTTPError => error
       return error
@@ -189,6 +256,7 @@ class Wikimart
     end
   end
 
+  # Ответ на PUT/POST
   def request path, params, method = Wikimart::METHOD_PUT
     d = DateTime.now.rfc2822.to_s
 
@@ -197,7 +265,7 @@ class Wikimart
     header = {
         "Accept" => "application/" + @@data_type,
         "X-WM-Date" => d,
-        "X-WM-Authentication" => @@app_id + ':' + @@instance.authentication(method, params.to_json, d, path)
+        "X-WM-Authentication" => @@app_id + ':' + authentication(method, params.to_json, d, path)
     }
 
     if method == Wikimart::METHOD_PUT
