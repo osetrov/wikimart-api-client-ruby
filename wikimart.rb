@@ -221,6 +221,67 @@ class Wikimart
     request Wikimart::API_PATH + "orders/#{order_id.to_s}/packages/#{package_id.to_s}/states", params
   end
 
+  # Обновление товаров
+  def set_offers offers = []
+    request Wikimart::API_PATH + "orders/offers", offers
+  end
+
+  # Получение информации о статусе и цене товаров
+  def get_offets yml_id = nil, own_id = [], city = nil
+    params = {
+        :own_id   => own_id,
+        :city => city
+    }
+
+    request Wikimart::API_PATH + "orders/offers/#{yml_id.to_s}", params, Wikimart::METHOD_POST
+  end
+
+  # Создание и обновление контентной информации о товарах
+  def set_content_offers yml_id = nil, own_id = nil, category_id = nil, name = nil, description = '', wikimart_model_id = nil,
+                         vendor_code = nil, vendor = nil, params = [], image_urls = []
+
+    params = {
+        :category_id => category_id,
+        :name => name,
+        :description => description,
+        :wikimart_model_id => wikimart_model_id,
+        :vendor_code => vendor_code,
+        :vendor => vendor,
+        :params => params,
+        :image_urls => image_urls
+    }
+
+    request Wikimart::API_PATH + "content/#{yml_id.to_s}/offers/#{own_id.to_s}", params
+  end
+
+  # Получение контентной информации о товаре
+  def get_content_offers yml_id = nil, own_id = nil
+    response Wikimart::API_PATH + "content/#{yml_id.to_s}/offers/#{own_id.to_s}"
+  end
+
+  # Создание и обновление категории
+  def set_content_categories yml_id = nil, id = nil, parent_id = nil, name = ''
+
+    params = {
+        :parent_id => parent_id,
+        :name => name
+    }
+
+    request Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}", params
+  end
+
+  # Удаление категории
+  def del_content_categories yml_id = nil, id = nil
+    params = {}
+    request Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}", params, Wikimart::METHOD_DELETE
+  end
+
+  # Получение информации о категории
+  def get_content_categories yml_id = nil, id = nil
+    response Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}"
+  end
+
+
   private
 
   # Аутентификация
@@ -256,7 +317,7 @@ class Wikimart
     end
   end
 
-  # Ответ на PUT/POST
+  # Ответ на PUT/POST/DELETE
   def request path, params, method = Wikimart::METHOD_PUT
     d = DateTime.now.rfc2822.to_s
 
