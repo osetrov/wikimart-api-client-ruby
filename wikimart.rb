@@ -1,13 +1,4 @@
 require 'open-uri'
-require 'json'
-require 'open-uri'
-require 'rubygems'
-require 'bundler'
-require 'active_support/core_ext'
-require 'pp'
-require 'net/http'
-require 'digest/hmac'
-require 'openssl'
 
 class Wikimart
 
@@ -57,9 +48,10 @@ class Wikimart
   @@host = 'http://merchant.wikimart.ru'
   @@app_id = ''
   @@app_secret = ''
+  @@yml_id = nil
   @@data_type = self::DATA_JSON
 
-  def self.instance(host = nil, app_id = nil, app_secret = nil, data_type = self::DATA_JSON)
+  def self.instance(app_id = nil, app_secret = nil, data_type = self::DATA_JSON, yml_id = nil, host = nil)
 
     @@instance ||= Wikimart.new
 
@@ -74,6 +66,9 @@ class Wikimart
     end
     if data_type.present?
       @@data_type = data_type
+    end
+    if yml_id.present?
+      @@yml_id = yml_id.to_i
     end
     @@instance
   end
@@ -232,21 +227,25 @@ class Wikimart
 
   # Обновление товаров
   def set_offers offers = []
-    request Wikimart::API_PATH + "orders/offers", offers
+    params = {
+        :offers   => offers
+    }
+
+    request Wikimart::API_PATH + "offers", params
   end
 
   # Получение информации о статусе и цене товаров
-  def get_offets yml_id = nil, own_id = [], city = nil
+  def get_offers own_id = nil, city = nil
     params = {
         :own_id   => own_id,
         :city => city
     }
 
-    request Wikimart::API_PATH + "orders/offers/#{yml_id.to_s}", params, Wikimart::METHOD_POST
+    request Wikimart::API_PATH + "offers/#{@@yml_id.to_s}", params, Wikimart::METHOD_POST
   end
 
   # Создание и обновление контентной информации о товарах
-  def set_content_offers yml_id = nil, own_id = nil, category_id = nil, name = nil, description = '', wikimart_model_id = nil,
+  def set_content_offers own_id = nil, category_id = nil, name = nil, description = '', wikimart_model_id = nil,
                          vendor_code = nil, vendor = nil, params = [], image_urls = []
 
     params = {
@@ -260,34 +259,34 @@ class Wikimart
         :image_urls => image_urls
     }
 
-    request Wikimart::API_PATH + "content/#{yml_id.to_s}/offers/#{own_id.to_s}", params
+    request Wikimart::API_PATH + "content/#{@@yml_id.to_s}/offers/#{own_id.to_s}", params
   end
 
   # Получение контентной информации о товаре
-  def get_content_offers yml_id = nil, own_id = nil
-    response Wikimart::API_PATH + "content/#{yml_id.to_s}/offers/#{own_id.to_s}"
+  def get_content_offers own_id = nil
+    response Wikimart::API_PATH + "content/#{@@yml_id.to_s}/offers/#{own_id.to_s}"
   end
 
   # Создание и обновление категории
-  def set_content_categories yml_id = nil, id = nil, parent_id = nil, name = ''
+  def set_content_categories id = nil, parent_id = nil, name = ''
 
     params = {
         :parent_id => parent_id,
         :name => name
     }
 
-    request Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}", params
+    request Wikimart::API_PATH + "content/#{@@yml_id.to_s}/categories/#{id.to_s}", params
   end
 
   # Удаление категории
-  def del_content_categories yml_id = nil, id = nil
+  def del_content_categories id = nil
     params = {}
-    request Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}", params, Wikimart::METHOD_DELETE
+    request Wikimart::API_PATH + "content/#{@@yml_id.to_s}/categories/#{id.to_s}", params, Wikimart::METHOD_DELETE
   end
 
   # Получение информации о категории
-  def get_content_categories yml_id = nil, id = nil
-    response Wikimart::API_PATH + "content/#{yml_id.to_s}/categories/#{id.to_s}"
+  def get_content_categories id = nil
+    response Wikimart::API_PATH + "content/#{@@yml_id.to_s}/categories/#{id.to_s}"
   end
 
   # Создание бандла с идентификатором ID
@@ -368,6 +367,7 @@ class Wikimart
     @uri = URI(@@host + path)
 
     header = {
+        "Content-Type" => "application/" + @@data_type,
         "Accept" => "application/" + @@data_type,
         "X-WM-Date" => d,
         "X-WM-Authentication" => @@app_id + ':' + authentication(method, params.to_json, d, path)
@@ -379,17 +379,19 @@ class Wikimart
       request = Net::HTTP::Post.new(@uri.path, header)
     end
     request.body = params.to_json
-    response = Net::HTTP.new(@uri.host, @uri.port).start {|http| http.request(request) }
+    response = Net::HTTP.new(@uri.host, @uri.port).start {
+        |http| http.request(request)
+    }
 
-    if response.code != '200'
+    if response.code != '200' or response.body.size == 0
       return response.message
     end
 
     case @@data_type
       when Wikimart::DATA_JSON
-        JSON.parse(response)
+        JSON.parse(response.body)
       when Wikimart::DATA_XML
-        Hash.from_xml(response)
+        Hash.from_xml(response.body)
       else
         response
     end
